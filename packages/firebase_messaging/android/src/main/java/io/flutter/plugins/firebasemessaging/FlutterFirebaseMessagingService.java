@@ -12,15 +12,13 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Process;
 import android.util.Log;
+
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
-import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.PluginRegistry;
-import io.flutter.view.FlutterCallbackInformation;
-import io.flutter.view.FlutterMain;
-import io.flutter.view.FlutterNativeView;
-import io.flutter.view.FlutterRunArguments;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -29,6 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugin.common.PluginRegistry;
+import io.flutter.plugins.firebasemessaging.cache.BackgroundCache;
+import io.flutter.view.FlutterCallbackInformation;
+import io.flutter.view.FlutterMain;
+import io.flutter.view.FlutterNativeView;
+import io.flutter.view.FlutterRunArguments;
 
 public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
 
@@ -43,6 +49,7 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
   private static final String BACKGROUND_SETUP_CALLBACK_HANDLE_KEY = "background_setup_callback";
   private static final String BACKGROUND_MESSAGE_CALLBACK_HANDLE_KEY =
       "background_message_callback";
+  private static final String NOTIFICATION_ID = "sessionId";
 
   // TODO(kroikie): make isIsolateRunning per-instance, not static.
   private static AtomicBoolean isIsolateRunning = new AtomicBoolean(false);
@@ -92,6 +99,9 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
       intent.putExtra(EXTRA_REMOTE_MESSAGE, remoteMessage);
       LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     } else {
+      //start of solution for Ingenio Advisor project
+      putMessageDataToCache(remoteMessage.getData());
+      //end of solution for Ingenio Advisor project
       // If background isolate is not running yet, put message in queue and it will be handled
       // when the isolate starts.
       if (!isIsolateRunning.get()) {
@@ -113,6 +123,28 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
           Log.i(TAG, "Exception waiting to execute Dart callback", ex);
         }
       }
+    }
+  }
+
+  private void putMessageDataToCache(Map<String, String> remoteMessageData) {
+    ArrayList<HashMap<String, String>> messagesData = new ArrayList<>();
+    ArrayList<HashMap<String, String>> cache = BackgroundCache.get(backgroundContext);
+    if (cache != null) {
+      messagesData.addAll(cache);
+    }
+    final String sessionId = remoteMessageData.get(NOTIFICATION_ID);
+    if (sessionId != null) {
+      if (!messagesData.isEmpty()) {
+        for (HashMap<String, String> notificationData : messagesData) {
+          final String id = notificationData.get(NOTIFICATION_ID);
+          if (sessionId.equals(id)) {
+            messagesData.remove(notificationData);
+            break;
+          }
+        }
+      }
+      messagesData.add(new HashMap<>(remoteMessageData));
+      BackgroundCache.put(backgroundContext, messagesData);
     }
   }
 

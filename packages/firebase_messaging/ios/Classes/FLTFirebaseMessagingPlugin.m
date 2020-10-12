@@ -203,7 +203,7 @@ static NSObject<FlutterPluginRegistrar> *_registrar;
   if (userInfo[kGCMMessageIDKey]) {
     [[FIRMessaging messaging] appDidReceiveMessage:userInfo];
     [_channel invokeMethod:@"onMessage" arguments:userInfo];
-    completionHandler(UNNotificationPresentationOptionNone);
+    completionHandler(UNNotificationPresentationOptionSound);
   }
 }
 
